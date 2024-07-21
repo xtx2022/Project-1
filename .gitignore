@@ -1,5 +1,4 @@
-/Clusters_2D_100.txt
-/Clusters_2D_100_30.txt
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
