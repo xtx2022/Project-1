@@ -198,14 +198,14 @@ not_found = []
 not_found_points = []
 
 for i in range (len(images)):
-    finded = find_local_maxima(images[i].raw_image)
-    for j in range(len(finded)):
-        dist.append(smallest_distance_to_set(finded[j], [tuple(row) for row in images[i].cord_of_points]))
+    found = find_local_maxima(images[i].raw_image)
+    for j in range(len(found)):
+        dist.append(smallest_distance_to_set(found[j], [tuple(row) for row in images[i].cord_of_points]))
         if dist[-1][2] > 1.5:
             large_error.append(i)
-            large_error_points.append(finded[j])
+            large_error_points.append(found[j])
     for j in range(len(images[i].cord_of_points)):
-        rev_dist.append(smallest_distance_to_set(images[i].cord_of_points[j], finded))
+        rev_dist.append(smallest_distance_to_set(images[i].cord_of_points[j], found))
         if rev_dist[-1][2] > 1.5:
             not_found.append(i)
             not_found_points.append(tuple(np.round(images[i].cord_of_points[j]).astype(int)))
@@ -248,9 +248,9 @@ print(large_error_points)
 
 for i in range (len(large_error)):
     print('Image ' + str(large_error[i]) + ' Raw Data')
-    # finded_list = find_local_maxima(images[large_error[i]].raw_image)
-    # for j in range(len(finded_list)):
-    #     print(extract_subarray(images[large_error[i]].raw_image, finded_list[j]))
+    # found_list = find_local_maxima(images[large_error[i]].raw_image)
+    # for j in range(len(found_list)):
+    #     print(extract_subarray(images[large_error[i]].raw_image, found_list[j]))
     print(extract_subarray(images[large_error[i]].raw_image, large_error_points[i]))
     marked_imag = mark_point(images[large_error[i]].raw_image, find_local_maxima(images[large_error[i]].raw_image))
     marked_imag = mark_point(marked_imag, [tuple(row) for row in np.round(images[large_error[i]].cord_of_points).astype(int)], (255, 0, 0))
