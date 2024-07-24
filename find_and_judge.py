@@ -368,6 +368,23 @@ def min_max_normalize(tensor, new_min=0.0, new_max=1.0):
     
     return normalized_tensor
 
+# %%
+from torchsr.models import edsr
+import torch.nn.functional as F
 
+def get_high_resolution_image(_images_: list, _scale_: int = 2, zero_padding: int = 2, num_of_images = -1):
+    if num_of_images == -1:
+        num_of_images = len(_images_)
+    hr_model = edsr(scale=_scale_, pretrained=True)
+    high_resolution_images = []
+    for i in range(num_of_images):
+        min_val = np.min(_images_[i])
+        max_val = np.max(_images_[i])
+        lr_t = min_max_normalize(torch.from_numpy(_images_[i]).unsqueeze(0).float()).repeat(3, 1, 1).unsqueeze(0)
+        sr_t = hr_model(F.pad(lr_t, (zero_padding, zero_padding, zero_padding, zero_padding), mode='constant', value=0.0))
+        margin = _scale_ * zero_padding
+        sr = torch.mean(min_max_normalize(sr_t[:,:,margin:-margin,margin:-margin].squeeze(0), min_val, max_val), dim = 0).detach().cpu().numpy()
+        high_resolution_images.append(sr)
+    return high_resolution_images
 
 # %%
