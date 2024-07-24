@@ -326,7 +326,7 @@ def rgb_to_grayscale(rgb_tensor):
         raise ValueError("Input tensor must have 3 channels (RGB).")
 
     # Define the weights for RGB to grayscale conversion
-    weights = torch.tensor([0.299, 0.587, 0.114], dtype=rgb_tensor.dtype, device=rgb_tensor.device)
+    weights = torch.tensor([1/3, 1/3, 1/3], dtype=rgb_tensor.dtype, device=rgb_tensor.device)
 
     # Convert RGB to grayscale using tensor operations
     gray_tensor = torch.tensordot(rgb_tensor, weights, dims=([0], [0]))
@@ -337,4 +337,37 @@ def rgb_to_grayscale(rgb_tensor):
     
     return gray_tensor
 
+def min_max_normalize(tensor, new_min=0.0, new_max=1.0):
+    """
+    Perform min-max normalization on a tensor.
+    
+    Parameters:
+        tensor (torch.Tensor): The input tensor to normalize.
+        new_min (float): The new minimum value of the normalized tensor.
+        new_max (float): The new maximum value of the normalized tensor.
+    
+    Returns:
+        torch.Tensor: The normalized tensor.
+    """
+    # Ensure tensor is of type float for normalization
+    tensor = tensor.float()
+    
+    # Calculate min and max values
+    tensor_min = tensor.min()
+    tensor_max = tensor.max()
+    
+    # Avoid division by zero
+    if tensor_max == tensor_min:
+        return torch.full_like(tensor, new_min)
+    
+    # Apply min-max normalization formula
+    normalized_tensor = (tensor - tensor_min) / (tensor_max - tensor_min)
+    
+    # Scale to the desired range [new_min, new_max]
+    normalized_tensor = normalized_tensor * (new_max - new_min) + new_min
+    
+    return normalized_tensor
 
+
+
+# %%
