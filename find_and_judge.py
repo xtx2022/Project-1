@@ -309,6 +309,32 @@ def get_float_result(_images_: list, _found_: list, half_size = 2) -> list:
 # ### Simple Local Meximum Approach
 
 # %%
+import torch
 
+def rgb_to_grayscale(rgb_tensor):
+    """
+    Convert an RGB tensor to a grayscale tensor.
+    
+    Parameters:
+        rgb_tensor (torch.Tensor): The input RGB tensor with shape [C, H, W], where C=3 for RGB.
+    
+    Returns:
+        torch.Tensor: The grayscale tensor with shape [1, H, W].
+    """
+    # Ensure the tensor is on the right device and has the correct shape
+    if rgb_tensor.shape[0] != 3:
+        raise ValueError("Input tensor must have 3 channels (RGB).")
+
+    # Define the weights for RGB to grayscale conversion
+    weights = torch.tensor([0.299, 0.587, 0.114], dtype=rgb_tensor.dtype, device=rgb_tensor.device)
+
+    # Convert RGB to grayscale using tensor operations
+    gray_tensor = torch.tensordot(rgb_tensor, weights, dims=([0], [0]))
+    
+    # Add batch dimension if needed
+    if len(gray_tensor.shape) == 2:
+        gray_tensor = gray_tensor.unsqueeze(0)
+    
+    return gray_tensor
 
 
