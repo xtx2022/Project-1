@@ -106,13 +106,19 @@ def extract_subarr(array: np.array, center, half_size = 2): # A 5x5 array by def
     return padded_arr
 
 def frac_part(array: np.array, center, half_size = 2):
-    sub_arr = extract_subarr(array, center, half_size)
+    # print('array=', array) #debug
+    # print('ccanter=', center) #debug
+    sub_arr = extract_subarr(array, center, half_size).T
+    # print('sub_arr=', sub_arr) #debug
     total_intensity = np.sum(sub_arr)
-    result = [- half_size + 0.5, - half_size + 0.5]
+    result = np.array([- half_size + 0.5, - half_size + 0.5])
     if total_intensity == 0:
         return None
     for idx, x in np.ndenumerate(sub_arr):
-        result += idx / total_intensity * x
+        # print('idx = ', idx) #debug
+        # print('np_arr', np.array(idx)) #debug
+        # print('ratio', (x / total_intensity)) #debug
+        result += np.array(idx) * (x / total_intensity)
     return result
     
 
@@ -193,7 +199,8 @@ class judge_data:
             print('Image ' + str(self.large_error[i]) + ' Raw Data')
             print(extract_subarr(_images_[self.large_error[i]].raw_image, self.large_error_points[i]))
             marked_imag = mark_point(_images_[self.large_error[i]].raw_image, [tuple(np.round(row - 0.5).astype(int)) for row in _found_[self.large_error[i]]])
-            marked_imag = mark_point(marked_imag, [tuple(np.round(row - 0.5).astype(int)) for row in _found_[self.large_error[i]]], (255, 0, 0))
+            marked_imag = mark_point(marked_imag, [tuple(row) for row in np.round(_images_[self.large_error[i]].cord_of_points - 0.5).astype(int)], (255, 0, 0))
+
             plt.imshow(marked_imag)
             plt.title('Image ' + str(self.large_error[i]) + ' Visualization')
             plt.xlabel('X-axis')
@@ -259,7 +266,7 @@ def find_local_maxima(matrix, threshold = 1000):
     for i in range(rows):
         for j in range(cols):
             if is_local_maxima(i, j):
-                local_maxima.append((j, i))
+                local_maxima.append(np.array([j, i]))
     
     return local_maxima
 
@@ -292,11 +299,17 @@ def remove_isolated_pixels(image):
     
     return processed_image
 
-def get_float_result(_images_: list, _found_: list, half_size = 2) -> list:
-    _float_result_ = [[0.0 for _ in range(len(row))] for row in _found_]
-    for i in range(len(_found_)):
-        for j in range(len(_found_[i])):
-            _float_result_[i][j] = _found_[i][j] + frac_part(_images_[i], _found_[i][j], half_size)
+def get_float_result(_images_: list, _found_: list, half_size = 2, to_int: bool = False) -> list:
+    if to_int:
+        _float_result_ = [[0 for _ in range(len(row))] for row in _found_]
+        for i in range(len(_found_)):
+            for j in range(len(_found_[i])):
+                _float_result_[i][j] = np.round(_found_[i][j] + frac_part(_images_[i], _found_[i][j], half_size) - 0.5).astype(int)
+    else:
+        _float_result_ = [[0.0 for _ in range(len(row))] for row in _found_]
+        for i in range(len(_found_)):
+            for j in range(len(_found_[i])):
+                _float_result_[i][j] = _found_[i][j] + frac_part(_images_[i], _found_[i][j], half_size)
     return _float_result_
 
 # %% [markdown]
@@ -384,7 +397,8 @@ def get_high_resolution_image(_images_: list, _scale_: int = 2, zero_padding: in
 # %%
 def find_points(_images_: list, algorithm: str, half_size = 2, num_of_images: int = -1) -> list: 
     '''
-    algorithms: 'local maxima', 'local maxima denoised', 'hr local maxima denoised'
+    algorithms: 'local maxima', 'local maxima denoised', 'local maxima denoised double', 
+    'hr local maxima denoised', 'hr local maxima denoised double'
     '''
     if num_of_images == -1:
         num_of_images = len(_images_)
@@ -398,13 +412,27 @@ def find_points(_images_: list, algorithm: str, half_size = 2, num_of_images: in
         for i in range (num_of_images):
             _found_.append(find_local_maxima(_denoised_[i]))
         _found_ = get_float_result(_denoised_, _found_, half_size)
+    if algorithm == 'local maxima denoised double':
+        _denoised_ = [remove_isolated_pixels(_image_.raw_image) for _image_ in _images_]
+        for i in range (num_of_images):
+            _found_.append(find_local_maxima(_denoised_[i]))
+        _mid_result_ = get_float_result(_denoised_, _found_, half_size, to_int=True)    
+        _found_ = get_float_result(_denoised_, _mid_result_, half_size)
     if algorithm == 'hr local maxima denoised':
         _denoised_ = [remove_isolated_pixels(_image_.raw_image) for _image_ in _images_]
         _hr_images_ = get_high_resolution_image(_denoised_, 4, 2, num_of_images)
         for i in range (len(_hr_images_)):
             _found_.append(find_local_maxima(_hr_images_[i]))
         _found_ = get_float_result(_hr_images_, _found_, 2 * half_size)
-        _found_ = [[value / 4 for value in sublist] for sublist in _found_] # explain 3/8
+        _found_ = [[value / 4 for value in sublist] for sublist in _found_]
+    if algorithm == 'hr local maxima denoised double':
+        _denoised_ = [remove_isolated_pixels(_image_.raw_image) for _image_ in _images_]
+        _hr_images_ = get_high_resolution_image(_denoised_, 4, 2, num_of_images)
+        for i in range (len(_hr_images_)):
+            _found_.append(find_local_maxima(_hr_images_[i]))
+        _mid_result_ = get_float_result(_hr_images_, _found_, half_size, to_int=True) 
+        _found_ = get_float_result(_hr_images_, _mid_result_, 2 * half_size)
+        _found_ = [[value / 4 for value in sublist] for sublist in _found_]
     return _found_
 
 # %%
