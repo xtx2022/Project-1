@@ -209,8 +209,9 @@ class judge_data:
 
 def judge(_images_: list, _found_: list) -> judge_data:
     _data_ = judge_data()
+    cycles = min(len(_images_), len(_found_))
 
-    for i in range (len(_images_)):
+    for i in range (cycles):
         for j in range(len(_found_[i])):
             _data_.dist.append(smallest_distance_to_set(_found_[i][j], [tuple(row) for row in _images_[i].cord_of_points]))
             if _data_.dist[-1][2] > 1.5:
@@ -228,12 +229,14 @@ def judge(_images_: list, _found_: list) -> judge_data:
     
 
 # %%
-def find_local_maxima(matrix):
+def find_local_maxima(matrix, threshold = 1000):
     rows = len(matrix)
     cols = len(matrix[0])
     
     def is_local_maxima(i, j):
         current = matrix[i][j]
+        if current < threshold:
+            return False
         # Check all eight possible neighbors
         neighbors = [
             (i-1, j-1), (i-1, j), (i-1, j+1),
@@ -283,26 +286,11 @@ def remove_isolated_pixels(image):
     
     return processed_image
 
-# %%
-def find_points(_images_: list, algorithm: str) -> list: 
-    '''
-    algorithms: 'local maxima', 'local maxima denoised'
-    '''
-    _found_ = []
-    if algorithm == 'local maxima':
-        for i in range (len(_images_)):
-            _found_.append(find_local_maxima(_images_[i].raw_image))
-    if algorithm == 'local maxima denoised':
-        for i in range (len(_images_)):
-            _denoised_ = remove_isolated_pixels(_images_[i].raw_image)
-            _found_.append(find_local_maxima(_denoised_))
-    return _found_
-
 def get_float_result(_images_: list, _found_: list, half_size = 2) -> list:
     _float_result_ = [[0.0 for _ in range(len(row))] for row in _found_]
     for i in range(len(_found_)):
         for j in range(len(_found_[i])):
-            _float_result_[i][j] = _found_[i][j] + frac_part(_images_[i].raw_image, _found_[i][j], half_size)
+            _float_result_[i][j] = _found_[i][j] + frac_part(_images_[i], _found_[i][j], half_size)
     return _float_result_
 
 # %% [markdown]
@@ -372,7 +360,7 @@ def min_max_normalize(tensor, new_min=0.0, new_max=1.0):
 from torchsr.models import edsr
 import torch.nn.functional as F
 
-def get_high_resolution_image(_images_: list, _scale_: int = 2, zero_padding: int = 2, num_of_images = -1):
+def get_high_resolution_image(_images_: list, _scale_: int = 2, zero_padding: int = 2, num_of_images: int = -1):
     if num_of_images == -1:
         num_of_images = len(_images_)
     hr_model = edsr(scale=_scale_, pretrained=True)
@@ -386,5 +374,31 @@ def get_high_resolution_image(_images_: list, _scale_: int = 2, zero_padding: in
         sr = torch.mean(min_max_normalize(sr_t[:,:,margin:-margin,margin:-margin].squeeze(0), min_val, max_val), dim = 0).detach().cpu().numpy()
         high_resolution_images.append(sr)
     return high_resolution_images
+
+# %%
+def find_points(_images_: list, algorithm: str, num_of_images: int = -1) -> list: 
+    '''
+    algorithms: 'local maxima', 'local maxima denoised', 'hr local maxima denoised'
+    '''
+    if num_of_images == -1:
+        num_of_images = len(_images_)
+    _found_ = []
+    if algorithm == 'local maxima':
+        for i in range (num_of_images):
+            _found_.append(find_local_maxima(_images_[i].raw_image))
+        _found_ = get_float_result([_image_.raw_image for _image_ in _images_], _found_)
+    if algorithm == 'local maxima denoised':
+        _denoised_ = [remove_isolated_pixels(_image_.raw_image) for _image_ in _images_]
+        for i in range (num_of_images):
+            _found_.append(find_local_maxima(_denoised_[i]))
+        _found_ = get_float_result(_denoised_, _found_)
+    if algorithm == 'hr local maxima denoised':
+        _denoised_ = [remove_isolated_pixels(_image_.raw_image) for _image_ in _images_]
+        _hr_images_ = get_high_resolution_image(_denoised_, 4, 2, num_of_images)
+        for i in range (len(_hr_images_)):
+            _found_.append(find_local_maxima(_hr_images_[i]))
+        _found_ = get_float_result(_hr_images_, _found_)
+        _found_ = [[value / 4 - 3/8 for value in sublist] for sublist in _found_]
+    return _found_
 
 # %%
