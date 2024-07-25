@@ -29,13 +29,9 @@ def read_in_data(file_path:str) -> list:
         _images_ = []
         cop = [] # Store cordinates of points tempoarily
         ri = [] # Store raw image tempoarily
-        #i = 0 #debug
         for line in file:
             numbers = []
             numbers = [float(s) for s in line.strip().split()]
-            #i += 1
-            #print('data', i)
-            #print(len(numbers)) #debug
             if len(numbers) == 1:
                 if len(_images_) > 0:
                     _images_[-1].raw_image = np.array(ri).T
@@ -46,7 +42,7 @@ def read_in_data(file_path:str) -> list:
                 cop.append(numbers)
                 if len(cop) == _images_[-1].num_of_points:
                     _images_[-1].cord_of_points = np.array(cop)
-                    _images_[-1].cord_of_points = _images_[-1].cord_of_points - 0.5 # -0.5, now the center is at (0, 0)
+                    _images_[-1].cord_of_points = _images_[-1].cord_of_points
                     cop.clear()
             else:
                 ri.append(numbers)
@@ -93,19 +89,26 @@ def mark_point(image: np.array, points: list, color = (0, 255, 0), type = 'norma
     """
 def extract_subarr(array: np.array, center, half_size = 2): # A 5x5 array by default, half_size is 2
     (center_x, center_y) = center
+    if (center_x < 0 or center_x >= array.shape[0] or center_y < 0 or center_y >= array.shape[1]):
+        return None
     left = max(center_x - half_size, 0)
+    left_pad = max(half_size - center_x, 0)
     right = min(center_x + half_size + 1, array.shape[0])
+    right_pad = max(center_x + half_size + 1 - array.shape[0], 0)
     down = max(center_y - half_size, 0)
+    down_pad = max(half_size - center_y, 0)
     up = min(center_y + half_size + 1, array.shape[1])
+    up_pad = max(center_y + half_size + 1 - array.shape[1], 0)
     # Extract the 5x5 subarray centered around (center_x, center_y)
     subarray = array[down : up,
                      left : right]
-    return subarray
+    padded_arr = np.pad(subarray, ((down_pad, up_pad), (left_pad, right_pad)), mode='constant', constant_values=0)
+    return padded_arr
 
 def frac_part(array: np.array, center, half_size = 2):
     sub_arr = extract_subarr(array, center, half_size)
     total_intensity = np.sum(sub_arr)
-    result = [- half_size, - half_size]
+    result = [- half_size + 0.5, - half_size + 0.5]
     if total_intensity == 0:
         return None
     for idx, x in np.ndenumerate(sub_arr):
@@ -189,8 +192,8 @@ class judge_data:
         for i in range (len(self.large_error)):
             print('Image ' + str(self.large_error[i]) + ' Raw Data')
             print(extract_subarr(_images_[self.large_error[i]].raw_image, self.large_error_points[i]))
-            marked_imag = mark_point(_images_[self.large_error[i]].raw_image, [tuple(row) for row in np.round(_found_[self.large_error[i]]).astype(int)])
-            marked_imag = mark_point(marked_imag, [tuple(row) for row in np.round(_images_[self.large_error[i]].cord_of_points).astype(int)], (255, 0, 0))
+            marked_imag = mark_point(_images_[self.large_error[i]].raw_image, [tuple(np.round(row - 0.5).astype(int)) for row in _found_[self.large_error[i]]])
+            marked_imag = mark_point(marked_imag, [tuple(np.round(row - 0.5).astype(int)) for row in _found_[self.large_error[i]]], (255, 0, 0))
             plt.imshow(marked_imag)
             plt.title('Image ' + str(self.large_error[i]) + ' Visualization')
             plt.xlabel('X-axis')
@@ -201,8 +204,8 @@ class judge_data:
             print('Image ' + str(self.not_found[i]) + ' Raw Data')
             print('Not Found:', self.not_found_points[i])
             print(extract_subarr(_images_[self.not_found[i]].raw_image, self.not_found_points[i]))
-            marked_imag = mark_point(_images_[self.not_found[i]].raw_image, [tuple(row) for row in np.round(_images_[self.not_found[i]].cord_of_points).astype(int)], (255, 0, 0))
-            marked_imag = mark_point(marked_imag, [tuple(row) for row in np.round(_found_[self.not_found[i]]).astype(int)])
+            marked_imag = mark_point(_images_[self.not_found[i]].raw_image, [tuple(row) for row in np.round(_images_[self.not_found[i]].cord_of_points - 0.5).astype(int)], (255, 0, 0))
+            marked_imag = mark_point(marked_imag, [tuple(np.round(row - 0.5).astype(int)) for row in _found_[self.not_found[i]]])
 
             plt.imshow(marked_imag)
             plt.title('Image ' + str(self.not_found[i]) + ' Visualization')
@@ -219,12 +222,12 @@ def judge(_images_: list, _found_: list) -> judge_data:
             _data_.dist.append(smallest_distance_to_set(_found_[i][j], [tuple(row) for row in _images_[i].cord_of_points]))
             if _data_.dist[-1][2] > 1.5:
                 _data_.large_error.append(i)
-                _data_.large_error_points.append(tuple(round(num) for num in _found_[i][j]))
+                _data_.large_error_points.append(tuple(round(num - 0.5) for num in _found_[i][j]))
         for j in range(len(_images_[i].cord_of_points)):
             _data_.rev_dist.append(smallest_distance_to_set(_images_[i].cord_of_points[j], _found_[i]))
             if _data_.rev_dist[-1][2] > 1.5:
                 _data_.not_found.append(i)
-                _data_.not_found_points.append(tuple(np.round(_images_[i].cord_of_points[j]).astype(int)))
+                _data_.not_found_points.append(tuple(np.round(_images_[i].cord_of_points[j] - 0.5).astype(int)))
 
     _data_.dist_array = np.array(_data_.dist).T 
 
@@ -401,7 +404,7 @@ def find_points(_images_: list, algorithm: str, half_size = 2, num_of_images: in
         for i in range (len(_hr_images_)):
             _found_.append(find_local_maxima(_hr_images_[i]))
         _found_ = get_float_result(_hr_images_, _found_, 2 * half_size)
-        _found_ = [[value / 4 - 3 / 8 for value in sublist] for sublist in _found_] # explain 3/8
+        _found_ = [[value / 4 for value in sublist] for sublist in _found_] # explain 3/8
     return _found_
 
 # %%
