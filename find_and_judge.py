@@ -379,7 +379,7 @@ def get_high_resolution_image(_images_: list, _scale_: int = 2, zero_padding: in
     return high_resolution_images
 
 # %%
-def find_points(_images_: list, algorithm: str, num_of_images: int = -1) -> list: 
+def find_points(_images_: list, algorithm: str, half_size = 2, num_of_images: int = -1) -> list: 
     '''
     algorithms: 'local maxima', 'local maxima denoised', 'hr local maxima denoised'
     '''
@@ -389,19 +389,19 @@ def find_points(_images_: list, algorithm: str, num_of_images: int = -1) -> list
     if algorithm == 'local maxima':
         for i in range (num_of_images):
             _found_.append(find_local_maxima(_images_[i].raw_image))
-        _found_ = get_float_result([_image_.raw_image for _image_ in _images_], _found_)
+        _found_ = get_float_result([_image_.raw_image for _image_ in _images_], _found_, half_size)
     if algorithm == 'local maxima denoised':
         _denoised_ = [remove_isolated_pixels(_image_.raw_image) for _image_ in _images_]
         for i in range (num_of_images):
             _found_.append(find_local_maxima(_denoised_[i]))
-        _found_ = get_float_result(_denoised_, _found_)
+        _found_ = get_float_result(_denoised_, _found_, half_size)
     if algorithm == 'hr local maxima denoised':
         _denoised_ = [remove_isolated_pixels(_image_.raw_image) for _image_ in _images_]
         _hr_images_ = get_high_resolution_image(_denoised_, 4, 2, num_of_images)
         for i in range (len(_hr_images_)):
             _found_.append(find_local_maxima(_hr_images_[i]))
-        _found_ = get_float_result(_hr_images_, _found_)
-        _found_ = [[value / 4 - 3/8 for value in sublist] for sublist in _found_]
+        _found_ = get_float_result(_hr_images_, _found_, 2 * half_size)
+        _found_ = [[value / 4 for value in sublist] for sublist in _found_] # explain 3/8
     return _found_
 
 # %%
