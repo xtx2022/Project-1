@@ -183,6 +183,9 @@ class judge_data:
         plt.show()
     
     def show_error(self, _images_: list, _found_: list) -> None:
+        if (len(self.large_error) == 0 and len(self.not_found) == 0):
+            print('None')
+        
         for i in range (len(self.large_error)):
             print('Image ' + str(self.large_error[i]) + ' Raw Data')
             print(extract_subarr(_images_[self.large_error[i]].raw_image, self.large_error_points[i]))
