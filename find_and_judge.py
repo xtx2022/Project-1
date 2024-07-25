@@ -401,7 +401,7 @@ def find_points(_images_: list, algorithm: str, half_size = 2, num_of_images: in
         for i in range (len(_hr_images_)):
             _found_.append(find_local_maxima(_hr_images_[i]))
         _found_ = get_float_result(_hr_images_, _found_, 2 * half_size)
-        _found_ = [[value / 4 for value in sublist] for sublist in _found_] # explain 3/8
+        _found_ = [[value / 4 - 3 / 8 for value in sublist] for sublist in _found_] # explain 3/8
     return _found_
 
 # %%
