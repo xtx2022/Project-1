@@ -385,6 +385,7 @@ def get_high_resolution_image(_images_: list, _scale_: int = 2, zero_padding: in
     hr_model = edsr(scale=_scale_, pretrained=True)
     high_resolution_images = []
     for i in range(num_of_images):
+        print('Processing image ', i , '...')
         min_val = np.min(_images_[i])
         max_val = np.max(_images_[i])
         lr_t = min_max_normalize(torch.from_numpy(_images_[i]).unsqueeze(0).float()).repeat(3, 1, 1).unsqueeze(0)
