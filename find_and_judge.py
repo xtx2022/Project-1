@@ -191,11 +191,19 @@ class judge_data:
         plt.grid(True)
         plt.show()
     
-    def show_error(self, _images_: list, _found_: list) -> None:
+    def show_error(self, _images_: list, _found_: list, max_image_num: int = -1) -> None:
         if (len(self.large_error) == 0 and len(self.not_found) == 0):
             print('None')
         
-        for i in range (len(self.large_error)):
+        if max_image_num >= 0:
+            image_num1 = min(len(self.large_error), max_image_num)
+            image_num2 = min(len(self.not_found), max_image_num)
+        else:
+            image_num1 = len(self.large_error)
+            image_num2 = len(self.not_found)
+                             
+
+        for i in range (image_num1):
             print('Image ' + str(self.large_error[i]) + ' Raw Data')
             print(extract_subarr(_images_[self.large_error[i]].raw_image, self.large_error_points[i]))
             marked_imag = mark_point(_images_[self.large_error[i]].raw_image, [tuple(np.round(row - 0.5).astype(int)) for row in _found_[self.large_error[i]]])
@@ -207,7 +215,7 @@ class judge_data:
             plt.ylabel('Y-axis')
             plt.show()
         
-        for i in range (len(self.not_found)):
+        for i in range (image_num2):
             print('Image ' + str(self.not_found[i]) + ' Raw Data')
             print('Not Found:', self.not_found_points[i])
             print(extract_subarr(_images_[self.not_found[i]].raw_image, self.not_found_points[i]))
@@ -220,19 +228,19 @@ class judge_data:
             plt.ylabel('Y-axis')
             plt.show()
 
-def judge(_images_: list, _found_: list) -> judge_data:
+def judge(_images_: list, _found_: list, threshold_error: float = 1.5) -> judge_data:
     _data_ = judge_data()
     cycles = min(len(_images_), len(_found_))
 
     for i in range (cycles):
         for j in range(len(_found_[i])):
             _data_.dist.append(smallest_distance_to_set(_found_[i][j], [tuple(row) for row in _images_[i].cord_of_points]))
-            if _data_.dist[-1][2] > 1.5:
+            if _data_.dist[-1][2] > threshold_error:
                 _data_.large_error.append(i)
                 _data_.large_error_points.append(tuple(round(num - 0.5) for num in _found_[i][j]))
         for j in range(len(_images_[i].cord_of_points)):
             _data_.rev_dist.append(smallest_distance_to_set(_images_[i].cord_of_points[j], _found_[i]))
-            if _data_.rev_dist[-1][2] > 1.5:
+            if _data_.rev_dist[-1][2] > threshold_error:
                 _data_.not_found.append(i)
                 _data_.not_found_points.append(tuple(np.round(_images_[i].cord_of_points[j] - 0.5).astype(int)))
 
@@ -242,63 +250,42 @@ def judge(_images_: list, _found_: list) -> judge_data:
     
 
 # %%
-def find_local_maxima(matrix, threshold = 1000):
-    rows = len(matrix)
-    cols = len(matrix[0])
-    
-    def is_local_maxima(i, j):
-        current = matrix[i][j]
-        if current < threshold:
-            return False
+def find_local_maxima(matrix: np.array, threshold: int = 0):
+    local_maxima = []
+    for (i, j), value in np.ndenumerate(matrix):
+        is_local_maxima = True
+        if value < threshold: is_local_maxima = False
         # Check all eight possible neighbors
         neighbors = [
             (i-1, j-1), (i-1, j), (i-1, j+1),
-            (i, j-1),            (i, j+1),
+            (i, j-1),             (i, j+1),
             (i+1, j-1), (i+1, j), (i+1, j+1)
         ]
-        for x, y in neighbors:
-            if 0 <= x < rows and 0 <= y < cols:
-                if matrix[x][y] >= current:
-                    return False
-        return True
-
-    local_maxima = []
-    for i in range(rows):
-        for j in range(cols):
-            if is_local_maxima(i, j):
-                local_maxima.append(np.array([j, i]))
-    
+        for u, v in neighbors:
+            if 0 <= u < len(matrix) and 0 <= v < len(matrix[0]) and matrix[u][v] > value: 
+                is_local_maxima = False
+                break
+        if is_local_maxima: local_maxima.append(np.array([j, i])) 
     return local_maxima
 
-def remove_isolated_pixels(image):
+def remove_isolated_pixels(image: np.array, threshold: int = 0):
     # Make a copy of the image to modify
     processed_image = image.copy()
-    
-    # Get the dimensions of the image
-    rows, cols = image.shape
-    
-    for i in range(rows):
-        for j in range(cols):
-            if image[i, j] != 0:
-                # Check edges and corners
-                if i == 0 or i == rows - 1 or j == 0 or j == cols - 1:
-                    neighbors = [
-                        image[i-1, j] if i > 0 else 0,
-                        image[i+1, j] if i < rows - 1 else 0,
-                        image[i, j-1] if j > 0 else 0,
-                        image[i, j+1] if j < cols - 1 else 0
-                    ]
-                    if sum(neighbors) == 0:
-                        processed_image[i, j] = 0
-                else:
-                    if image[i-1, j] == 0 and image[i+1, j] == 0 and \
-                       image[i, j-1] == 0 and image[i, j+1] == 0 and \
-                       image[i-1, j-1] == 0 and image[i-1, j+1] == 0 and \
-                       image[i+1, j-1] == 0 and image[i+1, j+1] == 0:
-                        processed_image[i, j] = 0
-    
+    for (i, j), value in np.ndenumerate(image):
+        if value <= threshold: break
+        to_delete = True
+        neighbors = [
+            (i-1, j-1), (i-1, j), (i-1, j+1),
+            (i, j-1),             (i, j+1),
+            (i+1, j-1), (i+1, j), (i+1, j+1)
+        ]
+        for u, v in neighbors:
+            if 0 <= u < image.shape[0] and 0 <= v < image.shape[1] and image[u][v] > threshold: 
+                to_delete = False
+                break
+        if to_delete: processed_image[i, j] = threshold
     return processed_image
-
+    
 def get_float_result(_images_: list, _found_: list, half_size = 2, to_int: bool = False) -> list:
     if to_int:
         _float_result_ = [[0 for _ in range(len(row))] for row in _found_]
@@ -380,7 +367,7 @@ from torchsr.models import edsr
 import torch.nn.functional as F
 
 def get_high_resolution_image(_images_: list, _scale_: int = 2, zero_padding: int = 2, num_of_images: int = -1):
-    if num_of_images == -1:
+    if num_of_images < 0:
         num_of_images = len(_images_)
     hr_model = edsr(scale=_scale_, pretrained=True)
     high_resolution_images = []
@@ -401,7 +388,7 @@ def find_points(_images_: list, algorithm: str, half_size: int = 2, _threshold_:
     algorithms: 'local maxima', 'local maxima denoised', 'local maxima denoised double', 
     'hr local maxima denoised', 'hr local maxima denoised double'
     '''
-    if num_of_images == -1:
+    if num_of_images < 0:
         num_of_images = len(_images_)
     _found_ = []
     if algorithm == 'local maxima':
